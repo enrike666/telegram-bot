@@ -3,9 +3,19 @@ package main
 import (
 	"encoding/json"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/gorilla/schema"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
-	"strings"
+	"time"
+)
+
+const (
+	contectTypeHeader              = "Content-Type"
+	contectTypeXWWWWFormUrlencoded = "application/x-www-form-urlencoded"
+	contentLengthHeader            = "Content-Length"
+	proverkachekaApiURL            = "https://proverkacheka.com/check/get"
 )
 
 type Config struct {
@@ -13,86 +23,63 @@ type Config struct {
 }
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI(getToken())
+	botToken, err := getToken()
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
-	bot.Debug = true
-	log.Printf("Authorized on account %s", bot.Self.UserName)
-
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	updates, err := bot.GetUpdatesChan(u)
+	bot, err := tgbotapi.NewBotAPI(botToken)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 
-	for update := range updates {
-		// тут можем шаманить с сообщениями и ответами
-		if update.Message == nil {
-			continue
+	updateConfig := tgbotapi.NewUpdate(0)
+	updateConfig.Timeout = 60
+
+	getter := NewTelegramUpdatesGetter(bot, updateConfig)
+	getFullChecker := NewTelegramGetFullChecker(proverkachekaApiURL, &http.Client{})
+	handler := NewTelegramUpdateHandler(bot, getFullChecker)
+
+	telegramWorker := NewTelegramWorker(getter, handler)
+
+	for {
+		time.Sleep(time.Second)
+
+		err = telegramWorker.Work()
+		if err != nil {
+			break
 		}
-
-		if update.Message.ReplyToMessage != nil {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-
-			replMessage := update.Message.ReplyToMessage
-			switch replMessage.Text {
-			case "введите информацию ответом на это сообщение":
-				info := ParseCheckInfo(update.Message.Text)
-				msg.Text = info.Sum
-			}
-			bot.Send(msg)
-		}
-
-		if update.Message.IsCommand() {
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-			switch update.Message.Command() {
-			case "check":
-				msg.Text = "введите информацию ответом на это сообщение"
-			case "status":
-				msg.Text = "I'm ok."
-			default:
-				msg.Text = "не понял!"
-			}
-			bot.Send(msg)
-		}
-
 	}
+
+	log.Println(err)
 }
 
-func ParseCheckInfo(str string) CheckInfo {
-	paramsMap := map[string]string{}
+func ParseCheckInfo(checkQueryString string) (*CheckInfo, error) {
+	var checkInfo CheckInfo
 
-	params := strings.Split(str, "&")
-	for _, p := range params {
-		param := strings.Split(p, "=")
-		paramsMap[param[0]] = param[1]
+	values, err := url.ParseQuery(checkQueryString)
+	if err != nil {
+		return nil, err
 	}
 
-	info := CheckInfo{
-		DateTime: paramsMap["t"],
-		Sum: paramsMap["s"],
-		FD: paramsMap["i"],
-		FN: paramsMap["fn"],
-		FP: paramsMap["fp"],
-		N: paramsMap["n"],
+	var decoder = schema.NewDecoder()
+
+	err = decoder.Decode(&checkInfo, values)
+	if err != nil {
+		return nil, err
 	}
 
-	return info
+	return &checkInfo, nil
 }
 
-
-
-func getToken()  string {
+func getToken() (string, error) {
 	file, _ := os.Open("config.json")
 	decoder := json.NewDecoder(file)
 	configuration := Config{}
 	err := decoder.Decode(&configuration)
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
+		return "", err
 	}
-	return configuration.TelegramBotToken
+	return configuration.TelegramBotToken, nil
 }

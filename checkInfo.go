@@ -1,11 +1,23 @@
 package main
 
+import (
+	"time"
+)
+
 type CheckInfo struct {
-	DateTime string
-	Sum string
-	FN string
-	FD string
-	FP string
-	N string
+	DateTimeString string `schema:"t"`
+	Sum            string `schema:"s"`
+	FN             string `schema:"fn"`
+	FD             string `schema:"i"`
+	FP             string `schema:"fp"`
+	N              string `schema:"n"`
 }
 
+func (c *CheckInfo) GetTime() (time.Time, error) {
+	dateTime, err := time.Parse("20060102T1504", c.DateTimeString)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return dateTime, nil
+}
