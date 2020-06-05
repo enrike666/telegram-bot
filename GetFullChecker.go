@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/schema"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,7 +13,7 @@ import (
 )
 
 type GetFullChecker interface {
-	GetFullCheck(CheckInfoFromBot) (*Check, error)
+	GetFullCheck(CheckInfo) (*Check, error)
 }
 
 type TelegramGetFullChecker struct {
@@ -26,13 +25,22 @@ func NewTelegramGetFullChecker(apiURL string, httpClient HttpDoer) *TelegramGetF
 	return &TelegramGetFullChecker{apiURL: apiURL, httpClient: httpClient}
 }
 
-func (t *TelegramGetFullChecker) GetFullCheck(checkInfoFromBot CheckInfoFromBot) (*Check, error) {
-	requestBodyValues := url.Values{}
-	var encoder = schema.NewEncoder()
-	checkInfoRequest, err := NewCheckInfoRequestBasedCheckInfoFromBot(checkInfoFromBot)
-	err = encoder.Encode(checkInfoRequest, requestBodyValues)
+func (t *TelegramGetFullChecker) GetFullCheck(checkInfo CheckInfo) (*Check, error) {
+	data := url.Values{}
+	data.Set("fn", checkInfo.FN)
+	data.Set("fd", checkInfo.FD)
+	data.Set("fp", checkInfo.FP)
+	data.Set("n", checkInfo.N)
+	data.Set("s", checkInfo.Sum)
 
-	requestBody := bytes.NewBufferString(requestBodyValues.Encode())
+	dateTime, err := checkInfo.GetTime()
+	if err != nil {
+		return nil, err
+	}
+
+	data.Set("t", dateTime.Format("01.06.2006 15:04"))
+
+	requestBody := bytes.NewBufferString(data.Encode())
 	request, err := http.NewRequest(http.MethodPost, t.apiURL, requestBody)
 	if err != nil {
 		return nil, err
@@ -40,7 +48,7 @@ func (t *TelegramGetFullChecker) GetFullCheck(checkInfoFromBot CheckInfoFromBot)
 
 	request.Header.Add(contectTypeHeader, contectTypeXWWWWFormUrlencoded)
 
-	contentLength := strconv.Itoa(len(requestBodyValues.Encode()))
+	contentLength := strconv.Itoa(len(data.Encode()))
 	request.Header.Add(contentLengthHeader, contentLength)
 
 	resp, err := t.httpClient.Do(request)
@@ -67,7 +75,6 @@ func (t *TelegramGetFullChecker) GetFullCheck(checkInfoFromBot CheckInfoFromBot)
 	var checkResponse Response
 	err = json.Unmarshal(body, &checkResponse)
 	if err != nil {
-		fmt.Errorf("ошибка: %w", err)
 		var errResponse ErrResponse
 
 		err = json.Unmarshal(body, &errResponse)

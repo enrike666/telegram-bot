@@ -54,8 +54,8 @@ func main() {
 	log.Println(err)
 }
 
-func ParseCheckInfo(checkQueryString string) (*CheckInfoFromBot, error) {
-	var checkInfo CheckInfoFromBot
+func ParseCheckInfo(checkQueryString string) (*CheckInfo, error) {
+	var checkInfo CheckInfo
 
 	values, err := url.ParseQuery(checkQueryString)
 	if err != nil {

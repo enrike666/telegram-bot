@@ -10,13 +10,13 @@ func TestParseCheckInfo(t *testing.T) {
 	testCases := []struct {
 		name             string
 		checkQueryString string
-		wantCheckInfo    *CheckInfoFromBot
+		wantCheckInfo    *CheckInfo
 		wantErr          bool
 	}{
 		{
 			name:             "positive",
 			checkQueryString: "t=20200601T2122&s=213.07&fn=9282440300649733&i=12416&fp=2858316733&n=1",
-			wantCheckInfo: &CheckInfoFromBot{
+			wantCheckInfo: &CheckInfo{
 				DateTimeString: "20200601T2122",
 				Sum:            "213.07",
 				FN:             "9282440300649733",
