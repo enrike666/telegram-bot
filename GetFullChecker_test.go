@@ -99,21 +99,41 @@ func (m MockHadler) ServeHTTP(writer http.ResponseWriter, request *http.Request)
 		return
 	}
 
-	//invalidResponse := struct {
-	//
-	//}{}
-	//invalidResponse.Data.Json.OrganizationAddress = "спортивная"
-	//invalidResponse.Data.Json.OrganizationName = "ддд"
-	//invalidResponse.Data.Json.Sum = "строка"
+	if checkInfoRequest.FD == "string" {
+		var errResponse ErrResponse
+		responseBody, err := json.Marshal(&errResponse)
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		writer.WriteHeader(http.StatusOK)
+		_, _ = writer.Write(responseBody)
+		return
+	}
 
-	//responseBody, err := json.Marshal(&invalidResponse)
-	//if err != nil {
-	//	writer.WriteHeader(http.StatusInternalServerError)
-	//	return
-	//}
+	if checkInfoRequest.Sum == "string from response"{
+		invalidResponse := struct {
+			Data struct {
+				Json struct{
+					OrganizationAddress string    `json:"retailPlaceAddress"`
+					OrganizationName    string    `json:"user"`
+					Sum                 string   `json:"totalSum"`
+				} `json:"json"`
+			} `json:"data"`
+		}{}
+		invalidResponse.Data.Json.OrganizationAddress = "спортивная"
+		invalidResponse.Data.Json.OrganizationName = "ддд"
+		invalidResponse.Data.Json.Sum = "строка"
 
-	//writer.WriteHeader(http.StatusOK)
-	//_, _ = writer.Write(responseBody)
+		responseBody, err := json.Marshal(&invalidResponse)
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		writer.WriteHeader(http.StatusOK)
+		_, _ = writer.Write(responseBody)
+	}
 }
 
 func TestGetFullCheck(t *testing.T) {
@@ -160,7 +180,7 @@ func TestGetFullCheck(t *testing.T) {
 		},
 		{
 			name:   "invalid check DateTime",
-			apiUrl: "https://proverkacheka.com/check/get",
+			apiUrl: server.URL,
 			checkInfo: CheckInfoFromBot{
 				DateTimeString: "0601T2122",
 				Sum:            "213.07",
@@ -192,23 +212,30 @@ func TestGetFullCheck(t *testing.T) {
 		},
 		{
 			name:   "bad request string field FD",
-			apiUrl: "https://proverkacheka.com/check/get",
+			apiUrl: server.URL,
 			checkInfo: CheckInfoFromBot{
 				DateTimeString: "20200601T2122",
 				Sum:            "213.07",
 				FN:             "9282440300649733",
-				FD:             "may",
+				FD:             "string",
 				FP:             "2858316733",
 				N:              "1",
 			},
 			wantErr: true,
 		},
-		//{  ЕГО ПРОВЕРЯТЬ АНОНИМНОЙ СТРУКТУРОЙ
-		//	name:   "invalid response",
-		//	apiUrl: server.URL,
-		//	checkInfo: validCheckInfo,
-		//	wantErr: true,
-		//},
+		{
+			name:   "invalid response",
+			apiUrl: server.URL,
+			checkInfo: CheckInfoFromBot{
+				DateTimeString: "20200601T2122",
+				Sum:            "string from response",
+				FN:             "9282440300649733",
+				FD:             "12416",
+				FP:             "2858316733",
+				N:              "1",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range testCases {
